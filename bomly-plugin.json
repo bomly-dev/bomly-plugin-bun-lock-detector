@@ -14,8 +14,6 @@
   },
   "detectorDescriptor": {
     "name": "bomly.examples.detector.bun-lock",
-    "enabled": true,
-    "origin": "external",
     "technique": "lockfile",
     "supportedEcosystems": [
       "other",
@@ -34,7 +32,7 @@
         ]
       }
     ],
-    "capabilities": [
+    "tags": [
       "dependency-detection",
       "package-manager-other-demo"
     ]
