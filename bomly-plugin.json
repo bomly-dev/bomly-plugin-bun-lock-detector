@@ -1,0 +1,46 @@
+{
+  "schemaVersion": "bomly.plugin.package.v1",
+  "id": "bomly.examples.detector.bun-lock",
+  "name": "Bun Lock Detector",
+  "version": "0.1.0",
+  "kind": "detector",
+  "runtime": "hashicorp-grpc",
+  "pluginApiVersion": "bomly.plugin.v1",
+  "bomlyVersion": ">=0.1.0",
+  "entrypoint": {
+    "linux/amd64": "bin/bomly-plugin-bun-lock-detector",
+    "darwin/arm64": "bin/bomly-plugin-bun-lock-detector",
+    "windows/amd64": "bin/bomly-plugin-bun-lock-detector.exe"
+  },
+  "detectorDescriptor": {
+    "name": "bomly.examples.detector.bun-lock",
+    "enabled": true,
+    "origin": "external",
+    "technique": "lockfile",
+    "supportedEcosystems": [
+      "other",
+      "npm"
+    ],
+    "supportedManagers": [
+      "other"
+    ],
+    "packageManagerSupport": [
+      {
+        "packageManager": "other",
+        "evidencePatterns": [
+          "bun.lock",
+          "bun.lockb",
+          "package.json"
+        ]
+      }
+    ],
+    "capabilities": [
+      "dependency-detection",
+      "package-manager-other-demo"
+    ]
+  },
+  "source": "github:bomly-dev/bomly-plugin-bun-lock-detector@v0.1.0",
+  "homepage": "https://github.com/bomly-dev/bomly-plugin-bun-lock-detector",
+  "license": "Apache-2.0",
+  "description": "Example detector plugin for Bun projects that demonstrates PackageManagerOther support."
+}
