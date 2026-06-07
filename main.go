@@ -27,17 +27,11 @@ type packageJSON struct {
 	PeerDependencies     map[string]string `json:"peerDependencies"`
 }
 
-func (d *detector) Metadata(context.Context) (*sdk.PluginMetadata, error) {
-	return &sdk.PluginMetadata{
-		ID:               pluginID,
-		Kind:             sdk.PluginKindDetector,
-		PluginAPIVersion: sdk.PluginAPIVersion,
-	}, nil
-}
-
 func (d *detector) Descriptor(context.Context) (*sdk.DetectorDescriptor, error) {
 	return &sdk.DetectorDescriptor{
 		Name:                pluginID,
+		DisplayName:         "Bun Lock Detector",
+		Aliases:             []string{"bun", "bun-lock"},
 		Technique:           sdk.LockfileTechnique,
 		SupportedEcosystems: []sdk.Ecosystem{sdk.EcosystemOther, sdk.EcosystemNPM},
 		SupportedManagers:   []sdk.PackageManager{sdk.PackageManagerOther},
