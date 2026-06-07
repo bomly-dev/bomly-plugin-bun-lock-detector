@@ -13,8 +13,7 @@ import (
 )
 
 const (
-	pluginID      = "bomly.examples.detector.bun-lock"
-	pluginVersion = "0.1.0"
+	pluginID = "bomly.examples.detector.bun-lock"
 )
 
 type detector struct{}
@@ -28,28 +27,15 @@ type packageJSON struct {
 	PeerDependencies     map[string]string `json:"peerDependencies"`
 }
 
-func (d *detector) Metadata(context.Context) (*sdk.PluginMetadata, error) {
-	return &sdk.PluginMetadata{
-		ID:               pluginID,
-		Name:             "Bun Lock Detector",
-		Version:          pluginVersion,
-		Kind:             sdk.PluginKindDetector,
-		PluginAPIVersion: sdk.PluginAPIVersion,
-		Description:      "Example detector plugin for Bun projects that demonstrates PackageManagerOther support.",
-		Homepage:         "https://github.com/bomly-dev/bomly-plugin-bun-lock-detector",
-		License:          "Apache-2.0",
-	}, nil
-}
-
 func (d *detector) Descriptor(context.Context) (*sdk.DetectorDescriptor, error) {
 	return &sdk.DetectorDescriptor{
 		Name:                pluginID,
-		Enabled:             true,
-		Origin:              sdk.ExternalOrigin,
+		DisplayName:         "Bun Lock Detector",
+		Aliases:             []string{"bun", "bun-lock"},
 		Technique:           sdk.LockfileTechnique,
 		SupportedEcosystems: []sdk.Ecosystem{sdk.EcosystemOther, sdk.EcosystemNPM},
 		SupportedManagers:   []sdk.PackageManager{sdk.PackageManagerOther},
-		Capabilities:        []string{"dependency-detection", "package-manager-other-demo"},
+		Tags:                []string{"dependency-detection", "package-manager-other-demo"},
 	}, nil
 }
 
@@ -100,9 +86,6 @@ func (d *detector) Detect(_ context.Context, req *sdk.DetectRequest) (*sdk.Detec
 	return &sdk.DetectResponse{
 		SubprojectInfo:      req.Subproject,
 		RootExecutionTarget: req.ExecutionTarget,
-		DetectorName:        pluginID,
-		Origin:              sdk.ExternalOrigin,
-		Technique:           sdk.LockfileTechnique,
 		Graphs: &sdk.GraphContainer{
 			Entries: []sdk.GraphEntry{{
 				Manifest: sdk.ManifestMetadata{

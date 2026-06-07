@@ -12,33 +12,6 @@
     "darwin/arm64": "bin/bomly-plugin-bun-lock-detector",
     "windows/amd64": "bin/bomly-plugin-bun-lock-detector.exe"
   },
-  "detectorDescriptor": {
-    "name": "bomly.examples.detector.bun-lock",
-    "enabled": true,
-    "origin": "external",
-    "technique": "lockfile",
-    "supportedEcosystems": [
-      "other",
-      "npm"
-    ],
-    "supportedManagers": [
-      "other"
-    ],
-    "packageManagerSupport": [
-      {
-        "packageManager": "other",
-        "evidencePatterns": [
-          "bun.lock",
-          "bun.lockb",
-          "package.json"
-        ]
-      }
-    ],
-    "capabilities": [
-      "dependency-detection",
-      "package-manager-other-demo"
-    ]
-  },
   "source": "github:bomly-dev/bomly-plugin-bun-lock-detector@v0.1.0",
   "homepage": "https://github.com/bomly-dev/bomly-plugin-bun-lock-detector",
   "license": "Apache-2.0",
