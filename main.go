@@ -14,6 +14,7 @@ import (
 
 const (
 	pluginID = "bomly.examples.detector.bun-lock"
+	bunPM    = sdk.PackageManager("bun")
 )
 
 type detector struct{}
@@ -65,11 +66,14 @@ func (d *detector) Detect(_ context.Context, req *sdk.DetectRequest) (*sdk.Detec
 	}
 	graph := sdk.New()
 	root := sdk.NewDependency(sdk.Dependency{
-		Name:        firstNonEmpty(manifest.Name, filepath.Base(req.ProjectPath)),
-		Version:     firstNonEmpty(manifest.Version, "0.0.0"),
-		Ecosystem:   string(sdk.EcosystemNPM),
-		BuildSystem: "bun",
-		FoundBy:     pluginID,
+		Coordinates: sdk.Coordinates{
+			Name:           firstNonEmpty(manifest.Name, filepath.Base(req.ProjectPath)),
+			Version:        firstNonEmpty(manifest.Version, "0.0.0"),
+			Ecosystem:      sdk.EcosystemNPM,
+			PackageManager: bunPM,
+			Type:           sdk.PackageTypeApplication,
+		},
+		FoundBy: pluginID,
 	})
 	if err := graph.AddNode(root); err != nil {
 		return nil, err
@@ -140,15 +144,17 @@ func dependencyNode(dep dependencySpec) *sdk.Dependency {
 	version := cleanVersion(dep.Version)
 	purl := sdk.BuildPackageURL("npm", namespace, name, version)
 	return sdk.NewDependency(sdk.Dependency{
-		Name:        name,
-		Org:         namespace,
-		Version:     version,
-		PURL:        purl,
-		PackageRef:  purl,
-		Ecosystem:   string(sdk.EcosystemNPM),
-		BuildSystem: "bun",
-		Scopes:      sdk.ScopesOf(dep.Scope),
-		FoundBy:     pluginID,
+		Coordinates: sdk.Coordinates{
+			Name:           name,
+			Org:            namespace,
+			Version:        version,
+			PURL:           purl,
+			Ecosystem:      sdk.EcosystemNPM,
+			PackageManager: bunPM,
+		},
+		PackageRef: purl,
+		Scopes:     sdk.ScopesOf(dep.Scope),
+		FoundBy:    pluginID,
 	})
 }
 
