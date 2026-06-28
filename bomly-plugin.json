@@ -2,7 +2,7 @@
   "schemaVersion": "bomly.plugin.package.v1",
   "id": "bomly.examples.detector.bun-lock",
   "name": "Bun Lock Detector",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "kind": "detector",
   "runtime": "hashicorp-grpc",
   "pluginApiVersion": "bomly.plugin.v1",
@@ -12,7 +12,7 @@
     "darwin/arm64": "bin/bomly-plugin-bun-lock-detector",
     "windows/amd64": "bin/bomly-plugin-bun-lock-detector.exe"
   },
-  "source": "github:bomly-dev/bomly-plugin-bun-lock-detector@v0.1.2",
+  "source": "github:bomly-dev/bomly-plugin-bun-lock-detector@v0.1.3",
   "homepage": "https://github.com/bomly-dev/bomly-plugin-bun-lock-detector",
   "license": "Apache-2.0",
   "description": "Example detector plugin for Bun projects that demonstrates PackageManagerOther support."
