@@ -8,7 +8,7 @@ The implementation keeps the parser small for example purposes: it reads depende
 
 ```bash
 go test ./...
-go build -o bin/bomly-plugin-bun-lock-detector .
+go build -o bin/bomly-plugin-bun-lock-detector ./cmd/bomly-plugin-bun-lock-detector
 ```
 
 On Windows, use `bin/bomly-plugin-bun-lock-detector.exe`.

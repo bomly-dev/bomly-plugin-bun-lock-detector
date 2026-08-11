@@ -1,4 +1,7 @@
-package main
+// Package plugin implements the Bun lock detector: an example Bomly
+// DETECTOR that resolves a dependency graph for Bun projects from
+// package.json, demonstrating PackageManagerOther support.
+package plugin
 
 import (
 	"context"
@@ -12,12 +15,19 @@ import (
 	"github.com/bomly-dev/bomly-sdk"
 )
 
-const (
-	pluginID = "bomly.examples.detector.bun-lock"
-	bunPM    = sdk.PackageManager("bun")
-)
+// Name is the plugin's identity. It MUST equal the "id" field in
+// bomly-plugin.json — Bomly refuses to load a plugin whose manifest id and
+// runtime descriptor name disagree.
+const Name = "bomly.examples.detector.bun-lock"
 
-type detector struct{}
+const bunPM = sdk.PackageManager("bun")
+
+// Detector is the component. Embedding sdk.BaseDetector supplies the default
+// Ready implementation (always ready); Applicable is overridden to require a
+// package.json in the project root.
+type Detector struct {
+	sdk.BaseDetector
+}
 
 type packageJSON struct {
 	Name                 string            `json:"name"`
@@ -28,41 +38,48 @@ type packageJSON struct {
 	PeerDependencies     map[string]string `json:"peerDependencies"`
 }
 
-func (d *detector) Descriptor(context.Context) (*sdk.DetectorDescriptor, error) {
-	return &sdk.DetectorDescriptor{
-		Name:                pluginID,
+// descriptor is the detector's static registration data.
+func descriptor() sdk.DetectorDescriptor {
+	return sdk.DetectorDescriptor{
+		Name:                Name,
 		DisplayName:         "Bun Lock Detector",
 		Aliases:             []string{"bun", "bun-lock"},
 		Technique:           sdk.LockfileTechnique,
 		SupportedEcosystems: []sdk.Ecosystem{sdk.EcosystemOther, sdk.EcosystemNPM},
 		SupportedManagers:   []sdk.PackageManager{sdk.PackageManagerOther},
 		Tags:                []string{"dependency-detection", "package-manager-other-demo"},
-	}, nil
+	}
 }
 
-func (d *detector) PackageManagerSupport(context.Context) ([]sdk.PackageManagerSupport, error) {
+// support is the detector's package-manager discovery metadata.
+func support() []sdk.PackageManagerSupport {
 	return []sdk.PackageManagerSupport{
 		sdk.Support(sdk.PackageManagerOther, "bun.lock", "bun.lockb", "package.json"),
-	}, nil
+	}
 }
 
-func (d *detector) Ready(context.Context, *sdk.DetectRequest) (*sdk.ReadyResponse, error) {
-	return &sdk.ReadyResponse{Ready: true}, nil
-}
+// Descriptor identifies the detector to Bomly.
+func (d *Detector) Descriptor() sdk.DetectorDescriptor { return descriptor() }
 
-func (d *detector) Applicable(_ context.Context, req *sdk.DetectRequest) (*sdk.ApplicableResponse, error) {
+// PackageManagerSupport reports package-manager discovery metadata so Bomly
+// can include the detector in subproject discovery and scan planning.
+func (d *Detector) PackageManagerSupport() []sdk.PackageManagerSupport { return support() }
+
+// Applicable reports whether the project root carries a package.json.
+func (d *Detector) Applicable(_ context.Context, req sdk.DetectionRequest) (bool, error) {
 	path := filepath.Join(req.ProjectPath, "package.json")
 	if _, err := os.Stat(path); err == nil {
-		return &sdk.ApplicableResponse{Applicable: true}, nil
+		return true, nil
 	}
-	return &sdk.ApplicableResponse{Applicable: false}, nil
+	return false, nil
 }
 
-func (d *detector) Detect(_ context.Context, req *sdk.DetectRequest) (*sdk.DetectResponse, error) {
+// ResolveGraph resolves the Bun project's dependency graph from package.json.
+func (d *Detector) ResolveGraph(_ context.Context, req sdk.DetectionRequest) (sdk.DetectionResult, error) {
 	manifestPath := filepath.Join(req.ProjectPath, "package.json")
 	manifest, err := readPackageJSON(manifestPath)
 	if err != nil {
-		return nil, err
+		return sdk.DetectionResult{}, err
 	}
 	graph := sdk.New()
 	root := sdk.NewDependency(sdk.Dependency{
@@ -73,21 +90,21 @@ func (d *detector) Detect(_ context.Context, req *sdk.DetectRequest) (*sdk.Detec
 			PackageManager: bunPM,
 			Type:           sdk.PackageTypeApplication,
 		},
-		FoundBy: pluginID,
+		FoundBy: Name,
 	})
 	if err := graph.AddNode(root); err != nil {
-		return nil, err
+		return sdk.DetectionResult{}, err
 	}
 	for _, dep := range dependencies(manifest) {
 		node := dependencyNode(dep)
 		if err := graph.AddNode(node); err != nil {
-			return nil, err
+			return sdk.DetectionResult{}, err
 		}
 		if err := graph.AddEdge(root.ID, node.ID); err != nil {
-			return nil, err
+			return sdk.DetectionResult{}, err
 		}
 	}
-	return &sdk.DetectResponse{
+	return sdk.DetectionResult{
 		SubprojectInfo:      req.Subproject,
 		RootExecutionTarget: req.ExecutionTarget,
 		Graphs: &sdk.GraphContainer{
@@ -154,7 +171,7 @@ func dependencyNode(dep dependencySpec) *sdk.Dependency {
 		},
 		PackageRef: purl,
 		Scopes:     sdk.ScopesOf(dep.Scope),
-		FoundBy:    pluginID,
+		FoundBy:    Name,
 	})
 }
 
@@ -187,6 +204,18 @@ func firstNonEmpty(values ...string) string {
 	return ""
 }
 
-func main() {
-	sdk.ServeDetector(&detector{})
+// Module packages the detector for both execution modes: Bomly can embed it
+// in-process or serve it as a managed plugin subprocess (see
+// cmd/bomly-plugin-bun-lock-detector).
+func Module() sdk.Module {
+	return sdk.Module{
+		Kind: sdk.PluginKindDetector,
+		Detector: &sdk.DetectorModule{
+			Descriptor: descriptor(),
+			Support:    support(),
+			New: func(context.Context, sdk.HostContext) (sdk.Detector, error) {
+				return &Detector{}, nil
+			},
+		},
+	}
 }
