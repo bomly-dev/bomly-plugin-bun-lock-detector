@@ -97,6 +97,42 @@ func TestApplicableRequiresPackageJSON(t *testing.T) {
 	}
 }
 
+// A directory named package.json is not a manifest and must not make the
+// detector applicable.
+func TestApplicableRejectsPackageJSONDirectory(t *testing.T) {
+	detector := newDetector(t)
+	root := t.TempDir()
+	if err := os.Mkdir(filepath.Join(root, "package.json"), 0o755); err != nil {
+		t.Fatalf("mkdir package.json: %v", err)
+	}
+	applicable, err := detector.Applicable(context.Background(), sdk.DetectionRequest{ProjectPath: root})
+	if err != nil {
+		t.Fatalf("Applicable() error = %v", err)
+	}
+	if applicable {
+		t.Fatal("expected not applicable when package.json is a directory")
+	}
+}
+
+// A stat failure other than "does not exist" (here ENOTDIR: the project path
+// is a regular file, so package.json cannot be statted beneath it) must
+// propagate instead of silently reporting "not applicable".
+func TestApplicablePropagatesStatErrors(t *testing.T) {
+	detector := newDetector(t)
+	root := t.TempDir()
+	filePath := filepath.Join(root, "not-a-directory")
+	if err := os.WriteFile(filePath, []byte("plain file"), 0o644); err != nil {
+		t.Fatalf("write file: %v", err)
+	}
+	applicable, err := detector.Applicable(context.Background(), sdk.DetectionRequest{ProjectPath: filePath})
+	if err == nil {
+		t.Fatal("expected a stat error to propagate")
+	}
+	if applicable {
+		t.Fatal("expected not applicable on stat error")
+	}
+}
+
 // TestConformance runs the SDK conformance suite against the module,
 // including the bomly-plugin.json identity cross-check.
 func TestConformance(t *testing.T) {

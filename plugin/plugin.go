@@ -65,13 +65,21 @@ func (d *Detector) Descriptor() sdk.DetectorDescriptor { return descriptor() }
 // can include the detector in subproject discovery and scan planning.
 func (d *Detector) PackageManagerSupport() []sdk.PackageManagerSupport { return support() }
 
-// Applicable reports whether the project root carries a package.json.
+// Applicable reports whether the project root carries a package.json file.
+// A missing manifest is a normal "not applicable"; any other stat failure
+// (permissions, I/O) propagates so the host can report it instead of
+// silently skipping the project. A directory named package.json does not
+// count as a manifest.
 func (d *Detector) Applicable(_ context.Context, req sdk.DetectionRequest) (bool, error) {
 	path := filepath.Join(req.ProjectPath, "package.json")
-	if _, err := os.Stat(path); err == nil {
-		return true, nil
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false, nil
+		}
+		return false, fmt.Errorf("stat %s: %w", path, err)
 	}
-	return false, nil
+	return !info.IsDir(), nil
 }
 
 // ResolveGraph resolves the Bun project's dependency graph from package.json.
