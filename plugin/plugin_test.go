@@ -54,22 +54,149 @@ func TestDetectPackageJSON(t *testing.T) {
 	if len(graph.Nodes()) != 4 {
 		t.Fatalf("expected root plus three dependencies, got %d", len(graph.Nodes()))
 	}
-	node, ok := graph.Node("is-odd@3.0.1")
-	if !ok {
-		t.Fatalf("expected is-odd dependency")
+
+	// The scanned project is a module node; the three package.json entries
+	// are dependency nodes. Ownership is the kind, not a flag.
+	if got := len(graph.ModuleNodes()); got != 1 {
+		t.Fatalf("expected exactly one module node for the scanned project, got %d", got)
 	}
-	if node.PURL != "pkg:npm/is-odd@3.0.1" {
-		t.Fatalf("unexpected PURL %q", node.PURL)
+	if got := len(graph.DependencyNodes()); got != 3 {
+		t.Fatalf("expected three dependency nodes, got %d", got)
+	}
+	root := graph.ModuleNodes()[0]
+	if root.NodeID() != "module:package.json#pkg:npm/bun-app@1.0.0" {
+		t.Fatalf("unexpected root module identity %q", root.NodeID())
+	}
+
+	// A dependency node is keyed by its canonical package URL.
+	node, ok := graph.DependencyNode("pkg:npm/is-odd@3.0.1")
+	if !ok {
+		t.Fatalf("expected is-odd dependency keyed by its canonical package URL, got %#v", nodeIDs(graph))
+	}
+	if node.Coordinates.PURL != "pkg:npm/is-odd@3.0.1" {
+		t.Fatalf("unexpected PURL %q", node.Coordinates.PURL)
+	}
+	if node.PackageRef != node.NodeID() {
+		t.Fatalf("PackageRef %q must be the node identity %q", node.PackageRef, node.NodeID())
+	}
+	if node.FoundBy != Name {
+		t.Fatalf("FoundBy = %q, want %q", node.FoundBy, Name)
 	}
 	if !node.HasScope(sdk.ScopeRuntime) {
 		t.Fatalf("expected runtime scope")
 	}
-	dev, ok := graph.Node("typescript@5.4.0")
+
+	// An npm scope becomes the package URL namespace, percent-encoded.
+	scoped, ok := graph.DependencyNode("pkg:npm/%40types/node@20.0.0")
 	if !ok {
-		t.Fatalf("expected typescript dependency")
+		t.Fatalf("expected @types/node dependency, got %#v", nodeIDs(graph))
+	}
+	if scoped.DisplayName() != "@types/node" {
+		t.Fatalf("display name = %q, want @types/node", scoped.DisplayName())
+	}
+
+	dev, ok := graph.DependencyNode("pkg:npm/typescript@5.4.0")
+	if !ok {
+		t.Fatalf("expected typescript dependency, got %#v", nodeIDs(graph))
 	}
 	if !dev.HasScope(sdk.ScopeDevelopment) {
 		t.Fatalf("expected development scope")
+	}
+
+	// Every dependency hangs off the root module.
+	for _, dep := range graph.DependencyNodes() {
+		parents, err := graph.Dependents(dep.NodeID())
+		if err != nil {
+			t.Fatalf("Dependents(%q) error = %v", dep.NodeID(), err)
+		}
+		if len(parents) != 1 || parents[0].NodeID() != root.NodeID() {
+			t.Fatalf("dependency %q is not attached to the root module, parents = %#v", dep.NodeID(), parents)
+		}
+	}
+}
+
+func nodeIDs(graph *sdk.Graph) []string {
+	out := make([]string, 0, len(graph.Nodes()))
+	for _, node := range graph.Nodes() {
+		out = append(out, node.NodeID())
+	}
+	return out
+}
+
+// A package listed under two dependency blocks is one node carrying both
+// scopes. The old graph errored on the second insert of an identity it
+// already held; insertion folds by identity now.
+func TestDuplicateDependencyFoldsIntoOneNode(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{
+  "name": "bun-app",
+  "version": "1.0.0",
+  "dependencies": { "typescript": "5.4.0" },
+  "devDependencies": { "typescript": "5.4.0" }
+}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+	result, err := newDetector(t).ResolveGraph(context.Background(), sdk.DetectionRequest{ProjectPath: dir})
+	if err != nil {
+		t.Fatalf("ResolveGraph() error = %v", err)
+	}
+	graph, err := result.ConsolidatedGraph()
+	if err != nil {
+		t.Fatalf("ConsolidatedGraph() error = %v", err)
+	}
+	if got := len(graph.DependencyNodes()); got != 1 {
+		t.Fatalf("expected one folded dependency node, got %d (%#v)", got, nodeIDs(graph))
+	}
+	node := graph.DependencyNodes()[0]
+	if !node.HasScope(sdk.ScopeRuntime) || !node.HasScope(sdk.ScopeDevelopment) {
+		t.Fatalf("folded node must carry both scopes, got %#v", node.Scopes)
+	}
+}
+
+// A module node's identity carries the declaring manifest path, so a
+// subproject's root must not collide with the scan root's.
+func TestModuleIdentityCarriesSubprojectPath(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"bun-app","version":"1.0.0"}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+	result, err := newDetector(t).ResolveGraph(context.Background(), sdk.DetectionRequest{
+		ProjectPath: dir,
+		Subproject:  sdk.Subproject{RelativePath: "packages/api"},
+	})
+	if err != nil {
+		t.Fatalf("ResolveGraph() error = %v", err)
+	}
+	graph, err := result.ConsolidatedGraph()
+	if err != nil {
+		t.Fatalf("ConsolidatedGraph() error = %v", err)
+	}
+	root := graph.ModuleNodes()[0]
+	if root.NodeID() != "module:packages/api/package.json#pkg:npm/bun-app@1.0.0" {
+		t.Fatalf("unexpected module identity %q", root.NodeID())
+	}
+}
+
+// A dependency entry whose key names nothing is dropped, not fatal.
+func TestBlankDependencyNameIsDropped(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{
+  "name": "bun-app",
+  "version": "1.0.0",
+  "dependencies": { "": "1.0.0", "is-odd": "3.0.1" }
+}`), 0o644); err != nil {
+		t.Fatalf("write package.json: %v", err)
+	}
+	result, err := newDetector(t).ResolveGraph(context.Background(), sdk.DetectionRequest{ProjectPath: dir})
+	if err != nil {
+		t.Fatalf("ResolveGraph() error = %v", err)
+	}
+	graph, err := result.ConsolidatedGraph()
+	if err != nil {
+		t.Fatalf("ConsolidatedGraph() error = %v", err)
+	}
+	if got := len(graph.DependencyNodes()); got != 1 {
+		t.Fatalf("expected the blank entry to be dropped, got %#v", nodeIDs(graph))
 	}
 }
 
