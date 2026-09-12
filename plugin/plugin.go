@@ -1,6 +1,6 @@
 // Package plugin implements the Bun lock detector: an example Bomly
 // DETECTOR that resolves a dependency graph for Bun projects from
-// package.json, demonstrating PackageManagerOther support.
+// package.json.
 package plugin
 
 import (
@@ -20,8 +20,6 @@ import (
 // bomly-plugin.json — Bomly refuses to load a plugin whose manifest id and
 // runtime descriptor name disagree.
 const Name = "bomly.examples.detector.bun-lock"
-
-const bunPM = sdk.PackageManager("bun")
 
 // rootManifestName is the declaring manifest path of the root module node,
 // written in this detector's own working-directory coordinate space.
@@ -54,20 +52,29 @@ type packageJSON struct {
 // descriptor is the detector's static registration data.
 func descriptor() sdk.DetectorDescriptor {
 	return sdk.DetectorDescriptor{
-		Name:                Name,
-		DisplayName:         "Bun Lock Detector",
-		Aliases:             []string{"bun", "bun-lock"},
-		Technique:           sdk.LockfileTechnique,
-		SupportedEcosystems: []sdk.Ecosystem{sdk.EcosystemOther, sdk.EcosystemNPM},
-		SupportedManagers:   []sdk.PackageManager{sdk.PackageManagerOther},
-		Tags:                []string{"dependency-detection", "package-manager-other-demo"},
+		Name:        Name,
+		DisplayName: "Bun Lock Detector",
+		Aliases:     []string{"bun", "bun-lock"},
+		Technique:   sdk.LockfileTechnique,
+		// Bun is a first-class SDK package manager whose ecosystem is npm:
+		// its packages come from the npm registry and carry pkg:npm
+		// identities, which is exactly what this detector mints. Declaring
+		// PackageManagerOther instead said the detector handled a manager
+		// belonging to EcosystemOther while minting npm identities -- a
+		// mismatch nothing catches today only because npm is unambiguous.
+		// sdk.BuildPackageURLFor refuses that shape in an ecosystem that
+		// spans two registries: (swift, cocoapods) builds a package URL and
+		// (swift, other) builds nothing.
+		SupportedEcosystems: []sdk.Ecosystem{sdk.EcosystemNPM},
+		SupportedManagers:   []sdk.PackageManager{sdk.PackageManagerBun},
+		Tags:                []string{"dependency-detection", "bun"},
 	}
 }
 
 // support is the detector's package-manager discovery metadata.
 func support() []sdk.PackageManagerSupport {
 	return []sdk.PackageManagerSupport{
-		sdk.Support(sdk.PackageManagerOther, "bun.lock", "bun.lockb", "package.json"),
+		sdk.Support(sdk.PackageManagerBun, "bun.lock", "bun.lockb", "package.json"),
 	}
 }
 
@@ -111,7 +118,7 @@ func (d *Detector) ResolveGraph(_ context.Context, req sdk.DetectionRequest) (sd
 		Name:           firstNonEmpty(manifest.Name, filepath.Base(req.ProjectPath)),
 		Version:        firstNonEmpty(manifest.Version, "0.0.0"),
 		Ecosystem:      sdk.EcosystemNPM,
-		PackageManager: bunPM,
+		PackageManager: sdk.PackageManagerBun,
 		Type:           sdk.PackageTypeApplication,
 	})
 	if err != nil {
@@ -214,7 +221,7 @@ func dependencyNode(dep dependencySpec) (*sdk.DependencyNode, error) {
 			Org:            namespace,
 			Version:        cleanVersion(dep.Version),
 			Ecosystem:      sdk.EcosystemNPM,
-			PackageManager: bunPM,
+			PackageManager: sdk.PackageManagerBun,
 		},
 		Scopes:  sdk.ScopesOf(dep.Scope),
 		FoundBy: Name,

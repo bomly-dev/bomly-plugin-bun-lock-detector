@@ -20,10 +20,14 @@ func newDetector(t *testing.T) sdk.Detector {
 	return detector
 }
 
-func TestPackageManagerOtherSupport(t *testing.T) {
+// TestBunPackageManagerSupport pins the discovery declaration. The detector
+// reads Bun projects, and bun is a first-class SDK package manager -- it used
+// to declare PackageManagerOther, which put it in the generic bucket while it
+// minted npm identities.
+func TestBunPackageManagerSupport(t *testing.T) {
 	support := newDetector(t).PackageManagerSupport()
-	if len(support) != 1 || support[0].PackageManager != sdk.PackageManagerOther {
-		t.Fatalf("expected PackageManagerOther support, got %#v", support)
+	if len(support) != 1 || support[0].PackageManager != sdk.PackageManagerBun {
+		t.Fatalf("expected PackageManagerBun support, got %#v", support)
 	}
 }
 
