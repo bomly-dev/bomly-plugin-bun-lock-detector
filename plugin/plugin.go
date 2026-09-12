@@ -227,8 +227,8 @@ func dependencyNode(dep dependencySpec) (*sdk.DependencyNode, error) {
 
 func splitNPMName(value string) (string, string) {
 	value = strings.TrimSpace(value)
-	if strings.HasPrefix(value, "@") {
-		parts := strings.SplitN(strings.TrimPrefix(value, "@"), "/", 2)
+	if after, ok := strings.CutPrefix(value, "@"); ok {
+		parts := strings.SplitN(after, "/", 2)
 		if len(parts) == 2 {
 			return parts[0], parts[1]
 		}
