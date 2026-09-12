@@ -153,9 +153,13 @@ func TestDuplicateDependencyFoldsIntoOneNode(t *testing.T) {
 	}
 }
 
-// A module node's identity carries the declaring manifest path, so a
-// subproject's root must not collide with the scan root's.
-func TestModuleIdentityCarriesSubprojectPath(t *testing.T) {
+// A detector declares its module in its own working-directory coordinate
+// space: it does not know where it was mounted, and Bomly's consolidation
+// stage rebases every module's declaring path onto the repository root. The
+// declaring path must therefore stay the bare manifest name even when the
+// request names a subproject, or the host would rebase an already-rebased
+// path.
+func TestModuleDeclaringPathIsNotSubprojectPrefixed(t *testing.T) {
 	dir := t.TempDir()
 	if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"bun-app","version":"1.0.0"}`), 0o644); err != nil {
 		t.Fatalf("write package.json: %v", err)
@@ -172,7 +176,10 @@ func TestModuleIdentityCarriesSubprojectPath(t *testing.T) {
 		t.Fatalf("ConsolidatedGraph() error = %v", err)
 	}
 	root := graph.ModuleNodes()[0]
-	if root.NodeID() != "module:packages/api/package.json#pkg:npm/bun-app@1.0.0" {
+	if root.DeclaringManifestPath != "package.json" {
+		t.Fatalf("declaring manifest path = %q, want the un-prefixed %q", root.DeclaringManifestPath, "package.json")
+	}
+	if root.NodeID() != "module:package.json#pkg:npm/bun-app@1.0.0" {
 		t.Fatalf("unexpected module identity %q", root.NodeID())
 	}
 }

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -23,6 +22,18 @@ import (
 const Name = "bomly.examples.detector.bun-lock"
 
 const bunPM = sdk.PackageManager("bun")
+
+// rootManifestName is the declaring manifest path of the root module node,
+// written in this detector's own working-directory coordinate space.
+//
+// A module node's identity is "module:<declaring path>#<purl>", and the path
+// must be repository-relative -- a raw checkout path would make the identity
+// vary from machine to machine, and the constructor rejects it outright. It is
+// deliberately NOT prefixed with Subproject.RelativePath here: a detector does
+// not know where it was mounted, so Bomly's consolidation stage rebases every
+// module's declaring path onto the repository root itself. Prefixing it here
+// would duplicate work the host owns.
+const rootManifestName = "package.json"
 
 // Detector is the component. Embedding sdk.BaseDetector supplies the default
 // Ready implementation (always ready); Applicable is overridden to require a
@@ -96,7 +107,7 @@ func (d *Detector) ResolveGraph(_ context.Context, req sdk.DetectionRequest) (sd
 	// node. Ownership is the node kind now; the application package type it
 	// used to carry is not sufficient on its own, because an
 	// application-typed *import* is still a consumed package.
-	root, err := sdk.NewModuleNode(moduleManifestPath(req), sdk.Coordinates{
+	root, err := sdk.NewModuleNode(rootManifestName, sdk.Coordinates{
 		Name:           firstNonEmpty(manifest.Name, filepath.Base(req.ProjectPath)),
 		Version:        firstNonEmpty(manifest.Version, "0.0.0"),
 		Ecosystem:      sdk.EcosystemNPM,
@@ -212,18 +223,6 @@ func dependencyNode(dep dependencySpec) (*sdk.DependencyNode, error) {
 		return nil, fmt.Errorf("%s: dependency %q: %w", Name, dep.Name, err)
 	}
 	return node, nil
-}
-
-// moduleManifestPath is the repository-relative path of the package.json that
-// declares the root module. A module node's identity includes it, so it must
-// be the relative form: a raw checkout path would make the identity vary from
-// machine to machine, and the constructor rejects it outright.
-func moduleManifestPath(req sdk.DetectionRequest) string {
-	relative := strings.TrimSpace(req.Subproject.RelativePath)
-	if relative == "" || relative == "." {
-		return "package.json"
-	}
-	return path.Join(filepath.ToSlash(relative), "package.json")
 }
 
 func splitNPMName(value string) (string, string) {
