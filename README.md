@@ -1,8 +1,8 @@
 # Bun Lock Detector Plugin
 
-Example Bomly detector plugin for Bun projects. It intentionally registers `PackageManagerOther` and declares `bun.lock`, `bun.lockb`, and `package.json` as evidence patterns, which shows how a plugin can support a package manager before Bomly has a first-class SDK enum for it.
+Example Bomly detector plugin for Bun projects. It registers the `bun` package manager and declares `bun.lock`, `bun.lockb`, and `package.json` as evidence patterns.
 
-The implementation keeps the parser small for example purposes: it reads dependencies from `package.json` and emits npm PURLs while the detector itself is selected through the generic `other` package manager.
+The implementation keeps the parser small for example purposes: it reads dependencies from `package.json` and emits `pkg:npm` package URLs, because Bun installs from the npm registry. That is also why the descriptor declares the `npm` ecosystem: the SDK already records that `bun` belongs to it, and a descriptor whose package manager and ecosystem disagree is a descriptor that contradicts itself. Earlier releases declared `PackageManagerOther` here, which put the detector in the generic bucket while it minted npm identities.
 
 ## Build and test
 

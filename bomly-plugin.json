@@ -15,5 +15,5 @@
   "source": "github:bomly-dev/bomly-plugin-bun-lock-detector@v0.1.7",
   "homepage": "https://github.com/bomly-dev/bomly-plugin-bun-lock-detector",
   "license": "Apache-2.0",
-  "description": "Example detector plugin for Bun projects that demonstrates PackageManagerOther support."
+  "description": "Example detector plugin that resolves a dependency graph for Bun projects from package.json."
 }
