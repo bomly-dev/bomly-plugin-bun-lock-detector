@@ -12,8 +12,10 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/bomly-dev/bomly-sdk"
 	"github.com/bomly-dev/bomly-sdk/detectorkit"
+
+	"github.com/bomly-dev/bomly-sdk/model"
+	sdkplugin "github.com/bomly-dev/bomly-sdk/plugin"
 )
 
 // Name is the plugin's identity. It MUST equal the "id" field in
@@ -37,7 +39,7 @@ const rootManifestName = "package.json"
 // Ready implementation (always ready); Applicable is overridden to require a
 // package.json in the project root.
 type Detector struct {
-	sdk.BaseDetector
+	sdkplugin.BaseDetector
 }
 
 type packageJSON struct {
@@ -50,12 +52,12 @@ type packageJSON struct {
 }
 
 // descriptor is the detector's static registration data.
-func descriptor() sdk.DetectorDescriptor {
-	return sdk.DetectorDescriptor{
+func descriptor() sdkplugin.DetectorDescriptor {
+	return sdkplugin.DetectorDescriptor{
 		Name:        Name,
 		DisplayName: "Bun Lock Detector",
 		Aliases:     []string{"bun", "bun-lock"},
-		Technique:   sdk.LockfileTechnique,
+		Technique:   sdkplugin.LockfileTechnique,
 		// Bun is a first-class SDK package manager whose ecosystem is npm:
 		// its packages come from the npm registry and carry pkg:npm
 		// identities, which is exactly what this detector mints. Declaring
@@ -65,32 +67,32 @@ func descriptor() sdk.DetectorDescriptor {
 		// sdk.BuildPackageURLFor refuses that shape in an ecosystem that
 		// spans two registries: (swift, cocoapods) builds a package URL and
 		// (swift, other) builds nothing.
-		SupportedEcosystems: []sdk.Ecosystem{sdk.EcosystemNPM},
-		SupportedManagers:   []sdk.PackageManager{sdk.PackageManagerBun},
+		SupportedEcosystems: []model.Ecosystem{model.EcosystemNPM},
+		SupportedManagers:   []model.PackageManager{model.PackageManagerBun},
 		Tags:                []string{"dependency-detection", "bun"},
 	}
 }
 
 // support is the detector's package-manager discovery metadata.
-func support() []sdk.PackageManagerSupport {
-	return []sdk.PackageManagerSupport{
-		sdk.Support(sdk.PackageManagerBun, "bun.lock", "bun.lockb", "package.json"),
+func support() []sdkplugin.PackageManagerSupport {
+	return []sdkplugin.PackageManagerSupport{
+		sdkplugin.Support(model.PackageManagerBun, "bun.lock", "bun.lockb", "package.json"),
 	}
 }
 
 // Descriptor identifies the detector to Bomly.
-func (d *Detector) Descriptor() sdk.DetectorDescriptor { return descriptor() }
+func (d *Detector) Descriptor() sdkplugin.DetectorDescriptor { return descriptor() }
 
 // PackageManagerSupport reports package-manager discovery metadata so Bomly
 // can include the detector in subproject discovery and scan planning.
-func (d *Detector) PackageManagerSupport() []sdk.PackageManagerSupport { return support() }
+func (d *Detector) PackageManagerSupport() []sdkplugin.PackageManagerSupport { return support() }
 
 // Applicable reports whether the project root carries a package.json file.
 // A missing manifest is a normal "not applicable"; any other stat failure
 // (permissions, I/O) propagates so the host can report it instead of
 // silently skipping the project. A directory named package.json does not
 // count as a manifest.
-func (d *Detector) Applicable(_ context.Context, req sdk.DetectionRequest) (bool, error) {
+func (d *Detector) Applicable(_ context.Context, req sdkplugin.DetectionRequest) (bool, error) {
 	path := filepath.Join(req.ProjectPath, "package.json")
 	info, err := os.Stat(path)
 	if err != nil {
@@ -103,34 +105,34 @@ func (d *Detector) Applicable(_ context.Context, req sdk.DetectionRequest) (bool
 }
 
 // ResolveGraph resolves the Bun project's dependency graph from package.json.
-func (d *Detector) ResolveGraph(_ context.Context, req sdk.DetectionRequest) (sdk.DetectionResult, error) {
+func (d *Detector) ResolveGraph(_ context.Context, req sdkplugin.DetectionRequest) (sdkplugin.DetectionResult, error) {
 	manifestPath := filepath.Join(req.ProjectPath, "package.json")
 	manifest, err := readPackageJSON(manifestPath)
 	if err != nil {
-		return sdk.DetectionResult{}, err
+		return sdkplugin.DetectionResult{}, err
 	}
-	graph := sdk.New()
+	graph := model.New()
 	// The scanned project's own package is a module node, not a dependency
 	// node. Ownership is the node kind now; the application package type it
 	// used to carry is not sufficient on its own, because an
 	// application-typed *import* is still a consumed package.
-	root, err := sdk.NewModuleNode(rootManifestName, sdk.Coordinates{
+	root, err := model.NewModuleNode(rootManifestName, model.Coordinates{
 		Name:           firstNonEmpty(manifest.Name, filepath.Base(req.ProjectPath)),
 		Version:        firstNonEmpty(manifest.Version, "0.0.0"),
-		Ecosystem:      sdk.EcosystemNPM,
-		PackageManager: sdk.PackageManagerBun,
-		Type:           sdk.PackageTypeApplication,
+		Ecosystem:      model.EcosystemNPM,
+		PackageManager: model.PackageManagerBun,
+		Type:           model.PackageTypeApplication,
 	})
 	if err != nil {
-		return sdk.DetectionResult{}, fmt.Errorf("%s: root module node: %w", Name, err)
+		return sdkplugin.DetectionResult{}, fmt.Errorf("%s: root module node: %w", Name, err)
 	}
 	if _, err := detectorkit.EnsureNode(graph, root); err != nil {
-		return sdk.DetectionResult{}, err
+		return sdkplugin.DetectionResult{}, err
 	}
 	for _, dep := range dependencies(manifest) {
 		node, err := dependencyNode(dep)
 		if err != nil {
-			return sdk.DetectionResult{}, err
+			return sdkplugin.DetectionResult{}, err
 		}
 		// EnsureNode, not AddNode: identity is the canonical package URL, so
 		// one package listed under two dependency blocks is one node, and
@@ -138,20 +140,20 @@ func (d *Detector) ResolveGraph(_ context.Context, req sdk.DetectionRequest) (sd
 		// failing.
 		inserted, err := detectorkit.EnsureNode(graph, node)
 		if err != nil {
-			return sdk.DetectionResult{}, err
+			return sdkplugin.DetectionResult{}, err
 		}
 		if err := graph.AddEdge(root.NodeID(), inserted.NodeID()); err != nil {
-			return sdk.DetectionResult{}, err
+			return sdkplugin.DetectionResult{}, err
 		}
 	}
-	return sdk.DetectionResult{
+	return sdkplugin.DetectionResult{
 		SubprojectInfo:      req.Subproject,
 		RootExecutionTarget: req.ExecutionTarget,
-		Graphs: &sdk.GraphContainer{
-			Entries: []sdk.GraphEntry{{
-				Manifest: sdk.ManifestMetadata{
+		Graphs: &model.GraphContainer{
+			Entries: []model.GraphEntry{{
+				Manifest: model.ManifestMetadata{
 					Path: manifestPath,
-					Kind: sdk.ManifestKind("package.json"),
+					Kind: model.ManifestKind("package.json"),
 				},
 				Graph: graph,
 			}},
@@ -162,7 +164,7 @@ func (d *Detector) ResolveGraph(_ context.Context, req sdk.DetectionRequest) (sd
 type dependencySpec struct {
 	Name    string
 	Version string
-	Scope   sdk.Scope
+	Scope   model.Scope
 }
 
 func readPackageJSON(path string) (packageJSON, error) {
@@ -179,17 +181,17 @@ func readPackageJSON(path string) (packageJSON, error) {
 
 func dependencies(manifest packageJSON) []dependencySpec {
 	var out []dependencySpec
-	out = appendDeps(out, manifest.Dependencies, sdk.ScopeRuntime)
-	out = appendDeps(out, manifest.OptionalDependencies, sdk.ScopeRuntime)
-	out = appendDeps(out, manifest.PeerDependencies, sdk.ScopeRuntime)
-	out = appendDeps(out, manifest.DevDependencies, sdk.ScopeDevelopment)
+	out = appendDeps(out, manifest.Dependencies, model.ScopeRuntime)
+	out = appendDeps(out, manifest.OptionalDependencies, model.ScopeRuntime)
+	out = appendDeps(out, manifest.PeerDependencies, model.ScopeRuntime)
+	out = appendDeps(out, manifest.DevDependencies, model.ScopeDevelopment)
 	sort.Slice(out, func(i, j int) bool {
 		return out[i].Name < out[j].Name
 	})
 	return out
 }
 
-func appendDeps(out []dependencySpec, deps map[string]string, scope sdk.Scope) []dependencySpec {
+func appendDeps(out []dependencySpec, deps map[string]string, scope model.Scope) []dependencySpec {
 	for name, version := range deps {
 		// A blank key is not a package. It used to produce a node with an
 		// empty identity; node construction now refuses one, and refusing
@@ -213,17 +215,17 @@ func appendDeps(out []dependencySpec, deps map[string]string, scope sdk.Scope) [
 // detector states travels with the node: building the node first and
 // assigning afterwards is how sibling npm-family detectors silently dropped
 // what they had detected.
-func dependencyNode(dep dependencySpec) (*sdk.DependencyNode, error) {
+func dependencyNode(dep dependencySpec) (*model.DependencyNode, error) {
 	namespace, name := splitNPMName(dep.Name)
-	node, err := sdk.NewDependencyNodeFrom(sdk.DependencyNode{
-		Coordinates: sdk.Coordinates{
+	node, err := model.NewDependencyNodeFrom(model.DependencyNode{
+		Coordinates: model.Coordinates{
 			Name:           name,
 			Org:            namespace,
 			Version:        cleanVersion(dep.Version),
-			Ecosystem:      sdk.EcosystemNPM,
-			PackageManager: sdk.PackageManagerBun,
+			Ecosystem:      model.EcosystemNPM,
+			PackageManager: model.PackageManagerBun,
 		},
-		Scopes:  sdk.ScopesOf(dep.Scope),
+		Scopes:  model.ScopesOf(dep.Scope),
 		FoundBy: Name,
 	})
 	if err != nil {
@@ -264,13 +266,13 @@ func firstNonEmpty(values ...string) string {
 // Module packages the detector for both execution modes: Bomly can embed it
 // in-process or serve it as a managed plugin subprocess (see
 // cmd/bomly-plugin-bun-lock-detector).
-func Module() sdk.Module {
-	return sdk.Module{
-		Kind: sdk.PluginKindDetector,
-		Detector: &sdk.DetectorModule{
+func Module() sdkplugin.Module {
+	return sdkplugin.Module{
+		Kind: sdkplugin.PluginKindDetector,
+		Detector: &sdkplugin.DetectorModule{
 			Descriptor: descriptor(),
 			Support:    support(),
-			New: func(context.Context, sdk.HostContext) (sdk.Detector, error) {
+			New: func(context.Context, sdkplugin.HostContext) (sdkplugin.Detector, error) {
 				return &Detector{}, nil
 			},
 		},

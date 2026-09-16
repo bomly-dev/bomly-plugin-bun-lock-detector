@@ -7,7 +7,8 @@ import (
 	"strings"
 	"testing"
 
-	sdk "github.com/bomly-dev/bomly-sdk"
+	"github.com/bomly-dev/bomly-sdk/model"
+	sdkplugin "github.com/bomly-dev/bomly-sdk/plugin"
 )
 
 // TestDeclaredManagersBelongToDeclaredEcosystems is the guard. A descriptor
@@ -25,7 +26,7 @@ import (
 // (swift, other) builds nothing at all.
 func TestDeclaredManagersBelongToDeclaredEcosystems(t *testing.T) {
 	d := descriptor()
-	declared := make(map[sdk.Ecosystem]bool, len(d.SupportedEcosystems))
+	declared := make(map[model.Ecosystem]bool, len(d.SupportedEcosystems))
 	for _, ecosystem := range d.SupportedEcosystems {
 		declared[ecosystem] = true
 	}
@@ -34,7 +35,7 @@ func TestDeclaredManagersBelongToDeclaredEcosystems(t *testing.T) {
 	}
 	for _, manager := range d.SupportedManagers {
 		ecosystem := manager.Ecosystem()
-		if ecosystem == sdk.EcosystemUnknown {
+		if ecosystem == model.EcosystemUnknown {
 			t.Errorf("package manager %q is not one the SDK knows; it has no ecosystem to check against", manager)
 			continue
 		}
@@ -72,7 +73,7 @@ func TestDeclaredEcosystemsAreProduced(t *testing.T) {
 }`), 0o644); err != nil {
 		t.Fatalf("write package.json: %v", err)
 	}
-	result, err := newDetector(t).ResolveGraph(context.Background(), sdk.DetectionRequest{ProjectPath: dir})
+	result, err := newDetector(t).ResolveGraph(context.Background(), sdkplugin.DetectionRequest{ProjectPath: dir})
 	if err != nil {
 		t.Fatalf("ResolveGraph() error = %v", err)
 	}
@@ -82,11 +83,11 @@ func TestDeclaredEcosystemsAreProduced(t *testing.T) {
 	}
 
 	d := descriptor()
-	declaredEcosystems := make(map[sdk.Ecosystem]bool, len(d.SupportedEcosystems))
+	declaredEcosystems := make(map[model.Ecosystem]bool, len(d.SupportedEcosystems))
 	for _, ecosystem := range d.SupportedEcosystems {
 		declaredEcosystems[ecosystem] = false
 	}
-	declaredManagers := make(map[sdk.PackageManager]bool, len(d.SupportedManagers))
+	declaredManagers := make(map[model.PackageManager]bool, len(d.SupportedManagers))
 	for _, manager := range d.SupportedManagers {
 		declaredManagers[manager] = false
 	}
@@ -96,7 +97,7 @@ func TestDeclaredEcosystemsAreProduced(t *testing.T) {
 		t.Fatal("graph has no nodes")
 	}
 	for _, node := range nodes {
-		coordinates, ok := sdk.NodeCoordinates(node)
+		coordinates, ok := model.NodeCoordinates(node)
 		if !ok {
 			t.Fatalf("node %q has no coordinates", node.NodeID())
 		}
@@ -114,7 +115,7 @@ func TestDeclaredEcosystemsAreProduced(t *testing.T) {
 		}
 		// The identity is what the declaration is ultimately about: bun
 		// packages come from the npm registry.
-		if purl := sdk.NodePURL(node); !strings.HasPrefix(purl, "pkg:npm/") {
+		if purl := model.NodePURL(node); !strings.HasPrefix(purl, "pkg:npm/") {
 			t.Errorf("node %q has package URL %q, want a pkg:npm identity", node.NodeID(), purl)
 		}
 	}
@@ -137,16 +138,16 @@ func TestDeclaredEcosystemsAreProduced(t *testing.T) {
 // PackageManagerBun.Ecosystem() the moment either side moves.
 func TestPackageManagerComesFromTheSDK(t *testing.T) {
 	found := false
-	for _, manager := range sdk.AllPackageManagers() {
-		if manager == sdk.PackageManagerBun {
+	for _, manager := range model.AllPackageManagers() {
+		if manager == model.PackageManagerBun {
 			found = true
 		}
 	}
 	if !found {
 		t.Fatal("sdk.AllPackageManagers() no longer lists bun; the descriptor needs revisiting")
 	}
-	if got := sdk.PackageManagerBun.Ecosystem(); got != sdk.EcosystemNPM {
-		t.Fatalf("sdk.PackageManagerBun.Ecosystem() = %q, want %q", got, sdk.EcosystemNPM)
+	if got := model.PackageManagerBun.Ecosystem(); got != model.EcosystemNPM {
+		t.Fatalf("sdk.PackageManagerBun.Ecosystem() = %q, want %q", got, model.EcosystemNPM)
 	}
 	data, err := os.ReadFile("plugin.go")
 	if err != nil {
