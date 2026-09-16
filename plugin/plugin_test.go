@@ -7,11 +7,13 @@ import (
 	"path/filepath"
 	"testing"
 
-	sdk "github.com/bomly-dev/bomly-sdk"
 	"github.com/bomly-dev/bomly-sdk/conformance"
+
+	"github.com/bomly-dev/bomly-sdk/model"
+	sdkplugin "github.com/bomly-dev/bomly-sdk/plugin"
 )
 
-func newDetector(t *testing.T) sdk.Detector {
+func newDetector(t *testing.T) sdkplugin.Detector {
 	t.Helper()
 	detector, err := Module().Detector.New(context.Background(), nil)
 	if err != nil {
@@ -26,7 +28,7 @@ func newDetector(t *testing.T) sdk.Detector {
 // minted npm identities.
 func TestBunPackageManagerSupport(t *testing.T) {
 	support := newDetector(t).PackageManagerSupport()
-	if len(support) != 1 || support[0].PackageManager != sdk.PackageManagerBun {
+	if len(support) != 1 || support[0].PackageManager != model.PackageManagerBun {
 		t.Fatalf("expected PackageManagerBun support, got %#v", support)
 	}
 }
@@ -47,7 +49,7 @@ func TestDetectPackageJSON(t *testing.T) {
 		t.Fatalf("write package.json: %v", err)
 	}
 
-	result, err := newDetector(t).ResolveGraph(context.Background(), sdk.DetectionRequest{ProjectPath: dir})
+	result, err := newDetector(t).ResolveGraph(context.Background(), sdkplugin.DetectionRequest{ProjectPath: dir})
 	if err != nil {
 		t.Fatalf("ResolveGraph() error = %v", err)
 	}
@@ -86,7 +88,7 @@ func TestDetectPackageJSON(t *testing.T) {
 	if node.FoundBy != Name {
 		t.Fatalf("FoundBy = %q, want %q", node.FoundBy, Name)
 	}
-	if !node.HasScope(sdk.ScopeRuntime) {
+	if !node.HasScope(model.ScopeRuntime) {
 		t.Fatalf("expected runtime scope")
 	}
 
@@ -103,7 +105,7 @@ func TestDetectPackageJSON(t *testing.T) {
 	if !ok {
 		t.Fatalf("expected typescript dependency, got %#v", nodeIDs(graph))
 	}
-	if !dev.HasScope(sdk.ScopeDevelopment) {
+	if !dev.HasScope(model.ScopeDevelopment) {
 		t.Fatalf("expected development scope")
 	}
 
@@ -119,7 +121,7 @@ func TestDetectPackageJSON(t *testing.T) {
 	}
 }
 
-func nodeIDs(graph *sdk.Graph) []string {
+func nodeIDs(graph *model.Graph) []string {
 	out := make([]string, 0, len(graph.Nodes()))
 	for _, node := range graph.Nodes() {
 		out = append(out, node.NodeID())
@@ -140,7 +142,7 @@ func TestDuplicateDependencyFoldsIntoOneNode(t *testing.T) {
 }`), 0o644); err != nil {
 		t.Fatalf("write package.json: %v", err)
 	}
-	result, err := newDetector(t).ResolveGraph(context.Background(), sdk.DetectionRequest{ProjectPath: dir})
+	result, err := newDetector(t).ResolveGraph(context.Background(), sdkplugin.DetectionRequest{ProjectPath: dir})
 	if err != nil {
 		t.Fatalf("ResolveGraph() error = %v", err)
 	}
@@ -152,7 +154,7 @@ func TestDuplicateDependencyFoldsIntoOneNode(t *testing.T) {
 		t.Fatalf("expected one folded dependency node, got %d (%#v)", got, nodeIDs(graph))
 	}
 	node := graph.DependencyNodes()[0]
-	if !node.HasScope(sdk.ScopeRuntime) || !node.HasScope(sdk.ScopeDevelopment) {
+	if !node.HasScope(model.ScopeRuntime) || !node.HasScope(model.ScopeDevelopment) {
 		t.Fatalf("folded node must carry both scopes, got %#v", node.Scopes)
 	}
 }
@@ -168,9 +170,9 @@ func TestModuleDeclaringPathIsNotSubprojectPrefixed(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(dir, "package.json"), []byte(`{"name":"bun-app","version":"1.0.0"}`), 0o644); err != nil {
 		t.Fatalf("write package.json: %v", err)
 	}
-	result, err := newDetector(t).ResolveGraph(context.Background(), sdk.DetectionRequest{
+	result, err := newDetector(t).ResolveGraph(context.Background(), sdkplugin.DetectionRequest{
 		ProjectPath: dir,
-		Subproject:  sdk.Subproject{RelativePath: "packages/api"},
+		Subproject:  sdkplugin.Subproject{RelativePath: "packages/api"},
 	})
 	if err != nil {
 		t.Fatalf("ResolveGraph() error = %v", err)
@@ -198,7 +200,7 @@ func TestBlankDependencyNameIsDropped(t *testing.T) {
 }`), 0o644); err != nil {
 		t.Fatalf("write package.json: %v", err)
 	}
-	result, err := newDetector(t).ResolveGraph(context.Background(), sdk.DetectionRequest{ProjectPath: dir})
+	result, err := newDetector(t).ResolveGraph(context.Background(), sdkplugin.DetectionRequest{ProjectPath: dir})
 	if err != nil {
 		t.Fatalf("ResolveGraph() error = %v", err)
 	}
@@ -214,7 +216,7 @@ func TestBlankDependencyNameIsDropped(t *testing.T) {
 func TestApplicableRequiresPackageJSON(t *testing.T) {
 	detector := newDetector(t)
 	empty := t.TempDir()
-	applicable, err := detector.Applicable(context.Background(), sdk.DetectionRequest{ProjectPath: empty})
+	applicable, err := detector.Applicable(context.Background(), sdkplugin.DetectionRequest{ProjectPath: empty})
 	if err != nil {
 		t.Fatalf("Applicable() error = %v", err)
 	}
@@ -226,7 +228,7 @@ func TestApplicableRequiresPackageJSON(t *testing.T) {
 	if err := os.WriteFile(filepath.Join(withManifest, "package.json"), []byte(`{}`), 0o644); err != nil {
 		t.Fatalf("write package.json: %v", err)
 	}
-	applicable, err = detector.Applicable(context.Background(), sdk.DetectionRequest{ProjectPath: withManifest})
+	applicable, err = detector.Applicable(context.Background(), sdkplugin.DetectionRequest{ProjectPath: withManifest})
 	if err != nil {
 		t.Fatalf("Applicable() error = %v", err)
 	}
@@ -243,7 +245,7 @@ func TestApplicableRejectsPackageJSONDirectory(t *testing.T) {
 	if err := os.Mkdir(filepath.Join(root, "package.json"), 0o755); err != nil {
 		t.Fatalf("mkdir package.json: %v", err)
 	}
-	applicable, err := detector.Applicable(context.Background(), sdk.DetectionRequest{ProjectPath: root})
+	applicable, err := detector.Applicable(context.Background(), sdkplugin.DetectionRequest{ProjectPath: root})
 	if err != nil {
 		t.Fatalf("Applicable() error = %v", err)
 	}
@@ -262,7 +264,7 @@ func TestApplicablePropagatesStatErrors(t *testing.T) {
 	if err := os.WriteFile(filePath, []byte("plain file"), 0o644); err != nil {
 		t.Fatalf("write file: %v", err)
 	}
-	applicable, err := detector.Applicable(context.Background(), sdk.DetectionRequest{ProjectPath: filePath})
+	applicable, err := detector.Applicable(context.Background(), sdkplugin.DetectionRequest{ProjectPath: filePath})
 	if err == nil {
 		t.Fatal("expected a stat error to propagate")
 	}
