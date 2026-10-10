@@ -2,7 +2,7 @@ module github.com/bomly-dev/bomly-plugin-bun-lock-detector
 
 go 1.27.0
 
-require github.com/bomly-dev/bomly-sdk v0.13.0
+require github.com/bomly-dev/bomly-sdk v0.14.7
 
 require (
 	github.com/CycloneDX/cyclonedx-go v0.12.0 // indirect
@@ -25,7 +25,7 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	golang.org/x/text v0.42.0 // indirect
 	golang.org/x/xerrors v0.0.0-20231012003039-104605ab7028 // indirect
-	google.golang.org/genproto/googleapis/rpc v0.0.0-20260526163538-3dc84a4a5aaa // indirect
-	google.golang.org/grpc v1.83.2 // indirect
+	google.golang.org/genproto/googleapis/rpc v0.0.0-20260706201446-f0a921348800 // indirect
+	google.golang.org/grpc v1.84.0 // indirect
 	google.golang.org/protobuf v1.36.12 // indirect
 )
