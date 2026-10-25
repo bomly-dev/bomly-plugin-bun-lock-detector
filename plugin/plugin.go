@@ -70,6 +70,8 @@ func descriptor() sdkplugin.DetectorDescriptor {
 		SupportedEcosystems: []model.Ecosystem{model.EcosystemNPM},
 		SupportedManagers:   []model.PackageManager{model.PackageManagerBun},
 		Tags:                []string{"dependency-detection", "bun"},
+		// The graph comes from package.json on disk; an SBOM or image target has none.
+		Requires: sdkplugin.Requirements{sdkplugin.RequirementSourceTree},
 	}
 }
 

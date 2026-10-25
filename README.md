@@ -4,6 +4,16 @@ Example Bomly detector plugin for Bun projects. It registers the `bun` package m
 
 The implementation keeps the parser small for example purposes: it reads dependencies from `package.json` and emits `pkg:npm` package URLs, because Bun installs from the npm registry. That is also why the descriptor declares the `npm` ecosystem: the SDK already records that `bun` belongs to it, and a descriptor whose package manager and ecosystem disagree is a descriptor that contradicts itself. Earlier releases declared `PackageManagerOther` here, which put the detector in the generic bucket while it minted npm identities.
 
+## Access
+
+`bomly-plugin.json` declares what the detector touches, which Bomly shows before you enable it. It is a disclosure, not a sandbox.
+
+| Access | Why |
+| --- | --- |
+| Reads `project` | `package.json` in the scanned project |
+
+The detector makes no network calls, reads no environment variables, writes nothing and starts no processes. It declares that it needs a source tree, so Bomly skips it when the scan target is an SBOM document or a container image.
+
 ## Build and test
 
 ```bash
