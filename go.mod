@@ -2,7 +2,7 @@ module github.com/bomly-dev/bomly-plugin-bun-lock-detector
 
 go 1.27.0
 
-require github.com/bomly-dev/bomly-sdk v0.16.0
+require github.com/bomly-dev/bomly-sdk v0.17.0
 
 require (
 	github.com/CycloneDX/cyclonedx-go v0.12.0 // indirect
